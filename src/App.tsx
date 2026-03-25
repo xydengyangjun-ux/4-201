@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { AlertTriangle, Shield, ShieldAlert, ShieldCheck, Wifi, Bell, Settings, HardDrive, FileSpreadsheet, Lock, User, CheckCircle2, XCircle, Send, HelpCircle, RefreshCw, Smartphone, Database, X, Maximize2, Minus, ChevronRight, Chrome, GraduationCap } from 'lucide-react';
+import { AlertTriangle, Shield, ShieldAlert, ShieldCheck, Wifi, Bell, Settings, HardDrive, FileSpreadsheet, Lock, User, CheckCircle2, XCircle, Send, HelpCircle, RefreshCw, Smartphone, Database, X, Maximize2, Minus, ChevronRight, Chrome, GraduationCap, Eye, EyeOff } from 'lucide-react';
 
 type Phase = 0 | 1 | 2 | 3 | 4 | 5;
 type TaskId = 'network' | 'update' | 'antivirus' | 'autologin' | 'twofactor' | 'backup' | 'password' | 'sharing' | 'access';
@@ -21,6 +21,28 @@ interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
 }
+
+const WindowWrapper = ({ id, activeWindow, closeWindow, title, icon: Icon, children, width = 'w-96' }: any) => {
+  if (activeWindow !== id) return null;
+  return (
+    <div className={`absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white rounded-lg shadow-2xl overflow-hidden flex flex-col border border-gray-300 ${width} z-50`}>
+      <div className="bg-gray-100 px-4 py-2 flex items-center justify-between border-b border-gray-300 select-none">
+        <div className="flex items-center space-x-2 text-gray-700">
+          <Icon size={16} />
+          <span className="text-sm font-medium">{title}</span>
+        </div>
+        <div className="flex space-x-2">
+          <button className="text-gray-500 hover:text-gray-700" onClick={() => closeWindow(id)}><Minus size={14} /></button>
+          <button className="text-gray-500 hover:text-gray-700"><Maximize2 size={14} /></button>
+          <button className="text-gray-500 hover:text-red-500" onClick={() => closeWindow(id)}><X size={14} /></button>
+        </div>
+      </div>
+      <div className="p-6 flex-1 overflow-y-auto bg-gray-50">
+        {children}
+      </div>
+    </div>
+  );
+};
 
 export default function App() {
   const [phase, setPhase] = useState<Phase>(0);
@@ -128,6 +150,7 @@ export default function App() {
   const [settingsTab, setSettingsTab] = useState<'security' | 'account' | 'backup'>('security');
   const [cloudAutoLogin, setCloudAutoLogin] = useState(true);
   const [excelPassword, setExcelPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [showEncryptModal, setShowEncryptModal] = useState(false);
 
   // Phase 5: Quiz State
@@ -347,28 +370,6 @@ export default function App() {
     setTasks(prev => ({ ...prev, [task]: true }));
   };
 
-  const WindowWrapper = ({ id, title, icon: Icon, children, width = 'w-96' }: any) => {
-    if (activeWindow !== id) return null;
-    return (
-      <div className={`absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white rounded-lg shadow-2xl overflow-hidden flex flex-col border border-gray-300 ${width} z-50`}>
-        <div className="bg-gray-100 px-4 py-2 flex items-center justify-between border-b border-gray-300 select-none">
-          <div className="flex items-center space-x-2 text-gray-700">
-            <Icon size={16} />
-            <span className="text-sm font-medium">{title}</span>
-          </div>
-          <div className="flex space-x-2">
-            <button className="text-gray-500 hover:text-gray-700" onClick={() => closeWindow(id)}><Minus size={14} /></button>
-            <button className="text-gray-500 hover:text-gray-700"><Maximize2 size={14} /></button>
-            <button className="text-gray-500 hover:text-red-500" onClick={() => closeWindow(id)}><X size={14} /></button>
-          </div>
-        </div>
-        <div className="p-6 flex-1 overflow-y-auto bg-gray-50">
-          {children}
-        </div>
-      </div>
-    );
-  };
-
   return (
     <div className="flex h-screen w-full bg-gray-900 font-sans overflow-hidden">
       {/* Left Area: Virtual Desktop */}
@@ -387,7 +388,7 @@ export default function App() {
         {/* Windows */}
         
         {/* Phase 0: QQ Group Chat */}
-        <WindowWrapper id="qq" title="QQ - 四年级1班 班级群" icon={Smartphone} width="w-[400px]">
+        <WindowWrapper id="qq" activeWindow={activeWindow} closeWindow={closeWindow} title="QQ - 四年级1班 班级群" icon={Smartphone} width="w-[400px]">
           <div className="h-[500px] flex flex-col bg-[#ebebeb] -m-6">
             {/* Chat Content */}
             <div className="flex-1 p-4 space-y-6 overflow-y-auto">
@@ -545,7 +546,7 @@ export default function App() {
         {/* Windows */}
         
         {/* Phase 1: WiFi Selection */}
-        <WindowWrapper id="wifi" title="网络连接" icon={Wifi}>
+        <WindowWrapper id="wifi" activeWindow={activeWindow} closeWindow={closeWindow} title="网络连接" icon={Wifi}>
           <div className="space-y-4">
             <p className="text-sm text-gray-600 mb-4">请选择要连接的无线网络：</p>
             <button 
@@ -599,7 +600,7 @@ export default function App() {
         </WindowWrapper>
 
         {/* Phase 1 & 3: System Update */}
-        <WindowWrapper id="update" title="系统更新提示" icon={Bell}>
+        <WindowWrapper id="update" activeWindow={activeWindow} closeWindow={closeWindow} title="系统更新提示" icon={Bell}>
           <div className="text-center space-y-4">
             <ShieldAlert size={48} className="mx-auto text-yellow-500" />
             <h3 className="text-lg font-medium">发现系统与应用新版本</h3>
@@ -650,7 +651,7 @@ export default function App() {
         </WindowWrapper>
 
         {/* Excel App (Browser) */}
-        <WindowWrapper id="excel" title="Chrome - 春游报名表 - 在线协作文档" icon={Chrome} width="w-[800px]">
+        <WindowWrapper id="excel" activeWindow={activeWindow} closeWindow={closeWindow} title="Chrome - 春游报名表 - 在线协作文档" icon={Chrome} width="w-[800px]">
           <div className="flex flex-col h-full">
             {/* Browser Address Bar */}
             <div className="flex items-center space-x-2 mb-4 bg-gray-100 p-2 rounded text-sm text-gray-600">
@@ -746,13 +747,22 @@ export default function App() {
                   <div className="space-y-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">请输入新密码</label>
-                      <input 
-                        type="password" 
-                        placeholder="例如: Abc@1234"
-                        value={excelPassword}
-                        onChange={e => setExcelPassword(e.target.value)}
-                        className="w-full p-3 border-2 border-gray-100 rounded-xl focus:border-blue-500 focus:outline-none transition-colors"
-                      />
+                      <div className="relative">
+                        <input 
+                          type={showPassword ? 'text' : 'password'} 
+                          placeholder="例如: Abc@1234"
+                          value={excelPassword}
+                          onChange={e => setExcelPassword(e.target.value)}
+                          className="w-full p-3 pr-10 border-2 border-gray-100 rounded-xl focus:border-blue-500 focus:outline-none transition-colors"
+                        />
+                        <button 
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none"
+                        >
+                          {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                        </button>
+                      </div>
                     </div>
 
                     <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
@@ -781,6 +791,7 @@ export default function App() {
                       <button 
                         onClick={() => {
                           setExcelPassword('');
+                          setShowPassword(false);
                           setShowEncryptModal(false);
                         }} 
                         className="px-5 py-2.5 text-sm font-medium text-gray-500 hover:bg-gray-100 rounded-xl transition-colors"
@@ -799,6 +810,7 @@ export default function App() {
                             alert('密码强度不足！请确保满足所有强密码要求，以更好地保护你的文件。');
                           } else {
                             completeTask('password');
+                            setShowPassword(false);
                             setShowEncryptModal(false);
                             setNotification({
                               title: '加密成功',
@@ -820,7 +832,7 @@ export default function App() {
         </WindowWrapper>
 
         {/* System Settings */}
-        <WindowWrapper id="settings" title="系统安全控制中心" icon={Settings} width="w-[500px]">
+        <WindowWrapper id="settings" activeWindow={activeWindow} closeWindow={closeWindow} title="系统安全控制中心" icon={Settings} width="w-[500px]">
           <div className="flex h-[300px]">
             {/* Sidebar */}
             <div className="w-1/3 border-r pr-4 space-y-2">
