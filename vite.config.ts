@@ -9,7 +9,6 @@ export default defineConfig(({mode}) => {
   return {
     plugins: [
       react(), 
-      tailwindcss(),
       legacy({
         targets: ['chrome 109'],
         additionalLegacyPolyfills: ['regenerator-runtime/runtime']

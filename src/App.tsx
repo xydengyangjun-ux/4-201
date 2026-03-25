@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { AlertTriangle, Shield, ShieldAlert, ShieldCheck, Wifi, Bell, Settings, HardDrive, FileSpreadsheet, Lock, User, CheckCircle2, XCircle, Send, HelpCircle, RefreshCw, Smartphone, Database, X, Maximize2, Minus, ChevronRight, Chrome, GraduationCap } from 'lucide-react';
-import { GoogleGenAI } from '@google/genai';
 
 type Phase = 0 | 1 | 2 | 3 | 4 | 5;
 type TaskId = 'network' | 'update' | 'antivirus' | 'autologin' | 'twofactor' | 'backup' | 'password' | 'sharing' | 'access';
@@ -49,18 +48,50 @@ export default function App() {
     content: '你好！我是你的信息科技课AI助教。今天我们将进行《班级春游数据安全》项目。请先观察模拟的社交群聊，看看老师发了什么任务。'
   }]);
 
-  const aiRef = useRef<GoogleGenAI | null>(null);
+  const deepSeekChat = async (messages: { role: string; content: string }[], systemInstruction?: string) => {
+    const payload = {
+      model: 'deepseek-chat',
+      messages: [
+        ...(systemInstruction ? [{ role: 'system', content: systemInstruction }] : []),
+        ...messages
+      ],
+      stream: false
+    };
 
-  const getAI = () => {
-    if (!aiRef.current) {
-      const apiKey = process.env.GEMINI_API_KEY;
-      if (!apiKey) {
-        console.warn('GEMINI_API_KEY is missing. AI features will not work.');
-        return null;
+    console.log('deepSeekChat payload:', payload);
+
+    try {
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      });
+
+      console.log('deepSeekChat response status:', response.status);
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('deepSeekChat error data:', errorData);
+        const errorMsg = errorData.error?.message || errorData.message || `API error: ${response.status}`;
+        throw new Error(errorMsg);
       }
-      aiRef.current = new GoogleGenAI({ apiKey });
+
+      const data = await response.json();
+      console.log('deepSeekChat data received');
+      
+      if (data.choices && data.choices.length > 0 && data.choices[0].message) {
+        return data.choices[0].message.content;
+      } else {
+        console.error('Unexpected DeepSeek response format:', data);
+        throw new Error('API 返回了非预期的格式。');
+      }
+    } catch (error) {
+      console.error('DeepSeek error:', error);
+      const message = error instanceof Error ? error.message : String(error);
+      return `抱歉，我遇到了一点网络问题，请重试。详细错误: ${message}`;
     }
-    return aiRef.current;
   };
 
   const [chatInput, setChatInput] = useState('');
@@ -158,9 +189,7 @@ export default function App() {
     if (!aiQuizInput.trim() || isAiQuizEvaluating) return;
     setIsAiQuizEvaluating(true);
     try {
-      const ai = getAI();
-      if (!ai) throw new Error('AI not available');
-      const prompt = `你是一位信息安全导师。现在正在对一名四年级学生进行结项考核。
+      const systemInstruction = `你是一位信息安全导师。现在正在对一名四年级学生进行结项考核。
 学生对本节课的总结是：${aiQuizInput}
 
 请根据学生的总结给出评价。
@@ -169,13 +198,12 @@ export default function App() {
 2. 判断学生是否真正掌握了数据安全的核心概念（如：多重防护、隐私保护、预防为主）。
 3. 如果总结得好，给予高度评价并宣布其通过考核。
 4. 字数控制在100字以内。`;
-      const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: prompt,
-      });
-      setAiQuizFeedback(response.text || '导师正在思考...');
+      const reply = await deepSeekChat([{ role: 'user', content: aiQuizInput }], systemInstruction);
+      setAiQuizFeedback(reply);
     } catch (error) {
-      setAiQuizFeedback('评价生成失败，请重试。');
+      console.error('handleAiQuizEvaluate error:', error);
+      const msg = error instanceof Error ? error.message : '未知错误';
+      setAiQuizFeedback(`评价生成失败: ${msg}`);
     } finally {
       setIsAiQuizEvaluating(false);
     }
@@ -202,6 +230,7 @@ export default function App() {
 
   const handleSendMessage = async (text: string = chatInput) => {
     if (!text.trim()) return;
+    console.log('Sending message:', text);
     
     const newHistory: ChatMessage[] = [...chatHistory, { role: 'user', content: text }];
     setChatHistory(newHistory);
@@ -209,22 +238,11 @@ export default function App() {
     setIsTyping(true);
 
     try {
-      const ai = getAI();
-      if (!ai) {
-        setChatHistory([...newHistory, { role: 'assistant', content: 'AI 助教暂时不可用，请检查 API 密钥配置。' }]);
-        setIsTyping(false);
-        return;
-      }
-      const prompt = newHistory.map(m => `${m.role === 'user' ? '学生' : '助教'}: ${m.content}`).join('\n') + '\n助教:';
-      const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: prompt,
-        config: {
-          systemInstruction: '你是信息科技课的AI助教。四年级学生正在进行《班级春游数据安全》项目。当学生问“为什么会这样”时，请先温和地指出他们在刚才的操作中犯了哪些错误（如：连接了公共免密WiFi、在公开共享的在线文档中直接输入了身份证和家庭住址等隐私信息、没有开启隐私保护等），导致了数据泄露。然后，引导他们结合教材知识，思考如何应用以下9个妙招：定期备份、强密码、杀毒软件、慎用自动登录、双重认证、限制访问权限、更新系统、安全网络、慎重分享个人信息。不要直接给答案，而是启发他们去左侧的‘虚拟系统’中寻找相应的设置进行修复。语气要像一位和蔼的老师。',
-        }
-      });
-      
-      const reply = response.text || '抱歉，我遇到了一点网络问题，请重试。';
+      console.log('Calling deepSeekChat...');
+      const systemInstruction = '你是信息科技课的AI助教。四年级学生正在进行《班级春游数据安全》项目。当学生问“为什么会这样”时，请先温和地指出他们在刚才的操作中犯了哪些错误（如：连接了公共免密WiFi、在公开共享的在线文档中直接输入了身份证和家庭住址等隐私信息、没有开启隐私保护等），导致了数据泄露。然后，引导他们结合教材知识，思考如何应用以下9个妙招：定期备份、强密码、杀毒软件、慎用自动登录、双重认证、限制访问权限、更新系统、安全网络、慎重分享个人信息。不要直接给答案，而是启发他们去左侧的‘虚拟系统’中寻找相应的设置进行修复。语气要像一位和蔼的老师。';
+      const messages = newHistory.map(m => ({ role: m.role === 'user' ? 'user' : 'assistant', content: m.content }));
+      const reply = await deepSeekChat(messages, systemInstruction);
+      console.log('Received reply:', reply);
       
       setChatHistory([...newHistory, { role: 'assistant', content: reply }]);
       
@@ -233,7 +251,11 @@ export default function App() {
         setActiveWindow('none');
       }
     } catch (error) {
-      setChatHistory([...newHistory, { role: 'assistant', content: '网络连接失败，请检查API密钥或网络状态。' }]);
+      console.error('handleSendMessage error:', error);
+      // deepSeekChat already handles errors by returning a string, 
+      // but if something else fails:
+      const msg = error instanceof Error ? error.message : '未知错误';
+      setChatHistory([...newHistory, { role: 'assistant', content: `系统错误: ${msg}` }]);
     } finally {
       setIsTyping(false);
     }
@@ -264,10 +286,7 @@ export default function App() {
     ][qaStep];
 
     try {
-      const ai = getAI();
-      if (!ai) throw new Error('AI not available');
-
-      const prompt = `你是一位专业的信息安全导师。现在正在对一名四年级学生进行安全预警提示。
+      const systemInstruction = `你是一位专业的信息安全导师。现在正在对一名四年级学生进行安全预警提示。
 提示场景：${currentQuestion}
 学生的处理方式：${qaInput}
 
@@ -279,12 +298,7 @@ export default function App() {
 4. 最后必须提供一个简短的【危险案例】（50字以内），说明如果不注意这一点会发生什么真实危害。
 5. 字数控制在150字以内。`;
 
-      const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: prompt,
-      });
-
-      const reply = response.text || '导师正在思考中...';
+      const reply = await deepSeekChat([{ role: 'user', content: qaInput }], systemInstruction);
       
       setChatHistory(prev => [...prev, 
         { role: 'user', content: qaInput },
@@ -294,7 +308,8 @@ export default function App() {
       setShowReadButton(true);
     } catch (error) {
       console.error('Warning feedback error:', error);
-      setChatHistory(prev => [...prev, { role: 'assistant', content: '导师连接中断，请重试。' }]);
+      const msg = error instanceof Error ? error.message : '未知错误';
+      setChatHistory(prev => [...prev, { role: 'assistant', content: `导师连接中断: ${msg}` }]);
     } finally {
       setIsGeneratingFeedback(false);
     }
