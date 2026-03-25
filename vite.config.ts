@@ -10,7 +10,7 @@ export default defineConfig(({mode}) => {
     plugins: [
       react(), 
       legacy({
-        targets: ['chrome 109'],
+        targets: ['chrome 10'],
         additionalLegacyPolyfills: ['regenerator-runtime/runtime']
       })
     ],
