@@ -2,8 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { AlertTriangle, Shield, ShieldAlert, ShieldCheck, Wifi, Bell, Settings, HardDrive, FileSpreadsheet, Lock, User, CheckCircle2, XCircle, Send, HelpCircle, RefreshCw, Smartphone, Database, X, Maximize2, Minus, ChevronRight, Chrome } from 'lucide-react';
 import { GoogleGenAI } from '@google/genai';
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-
 type Phase = 1 | 2 | 3 | 4;
 type TaskId = 'network' | 'update' | 'antivirus' | 'autologin' | 'twofactor' | 'backup' | 'password' | 'sharing' | 'access';
 type WindowId = 'none' | 'wifi' | 'update' | 'cloud' | 'excel' | 'settings' | 'crisis';
@@ -45,6 +43,21 @@ export default function App() {
     role: 'assistant',
     content: '你好！我是你的信息科技课AI助教。今天我们将进行《班级春游数据安全》项目。请先在左侧的电脑桌面上完成初始设置和信息登记。'
   }]);
+
+  const aiRef = useRef<GoogleGenAI | null>(null);
+
+  const getAI = () => {
+    if (!aiRef.current) {
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey) {
+        console.warn('GEMINI_API_KEY is missing. AI features will not work.');
+        return null;
+      }
+      aiRef.current = new GoogleGenAI({ apiKey });
+    }
+    return aiRef.current;
+  };
+
   const [chatInput, setChatInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -96,6 +109,12 @@ export default function App() {
     setIsTyping(true);
 
     try {
+      const ai = getAI();
+      if (!ai) {
+        setChatHistory([...newHistory, { role: 'assistant', content: 'AI 助教暂时不可用，请检查 API 密钥配置。' }]);
+        setIsTyping(false);
+        return;
+      }
       const prompt = newHistory.map(m => `${m.role === 'user' ? '学生' : '助教'}: ${m.content}`).join('\n') + '\n助教:';
       const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
