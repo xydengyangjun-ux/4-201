@@ -38,7 +38,7 @@
     "vite": "^6.2.0"
   },
   "browserslist": [
-    "chrome 10",
+    "chrome 109",
     "not dead"
   ]
 }

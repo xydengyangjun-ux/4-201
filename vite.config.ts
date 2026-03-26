@@ -10,10 +10,14 @@ export default defineConfig(({mode}) => {
     plugins: [
       react(), 
       legacy({
-        targets: ['chrome 10'],
+        targets: ['chrome 109'],
         additionalLegacyPolyfills: ['regenerator-runtime/runtime']
       })
     ],
+    build: {
+      target: 'chrome109',
+      cssTarget: 'chrome109',
+    },
     define: {
       'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY || ''),
     },

@@ -7,6 +7,8 @@ export default {
         'color-functional-notation': true,
         'oklab-query': true,
         'custom-properties': true,
+        'color-mix': true,
+        'logical-properties-and-values': true,
       },
     },
     'autoprefixer': {},
