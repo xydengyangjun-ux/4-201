@@ -44,6 +44,105 @@ const WindowWrapper = ({ id, activeWindow, closeWindow, title, icon: Icon, child
   );
 };
 
+interface EncryptModalProps {
+  onConfirm: (password: string) => void;
+  onCancel: () => void;
+}
+
+const EncryptModal = ({ onConfirm, onCancel }: EncryptModalProps) => {
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    // Focus the input when the modal opens
+    inputRef.current?.focus();
+  }, []);
+
+  const isStrong = password.length >= 8 && 
+                  /[A-Z]/.test(password) && 
+                  /[a-z]/.test(password) && 
+                  /[0-9]/.test(password) && 
+                  /[!@#$%^&*(),.?":{}|<>]/.test(password);
+
+  return (
+    <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-50">
+      <div className="bg-white p-6 rounded-2xl shadow-2xl w-96 animate-in zoom-in duration-200">
+        <div className="flex items-center space-x-2 mb-4 text-blue-600">
+          <Lock size={20} />
+          <h3 className="text-xl font-bold">设置文件加密密码</h3>
+        </div>
+        
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">请输入新密码</label>
+            <div className="relative">
+              <input 
+                ref={inputRef}
+                type={showPassword ? 'text' : 'password'} 
+                placeholder="例如: Abc@1234"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                className="w-full p-3 pr-10 border-2 border-gray-100 rounded-xl focus:border-blue-500 focus:outline-none transition-colors"
+              />
+              <button 
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none"
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
+          </div>
+
+          <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
+            <h4 className="text-xs font-bold text-blue-800 uppercase tracking-wider mb-2">强密码设置要求：</h4>
+            <ul className="text-xs text-blue-700 space-y-1">
+              <li className="flex items-center">
+                <div className={`w-1.5 h-1.5 rounded-full mr-2 ${password.length >= 8 ? 'bg-green-500' : 'bg-gray-300'}`}></div>
+                长度至少 8 位
+              </li>
+              <li className="flex items-center">
+                <div className={`w-1.5 h-1.5 rounded-full mr-2 ${/[A-Z]/.test(password) && /[a-z]/.test(password) ? 'bg-green-500' : 'bg-gray-300'}`}></div>
+                包含大小写字母
+              </li>
+              <li className="flex items-center">
+                <div className={`w-1.5 h-1.5 rounded-full mr-2 ${/[0-9]/.test(password) ? 'bg-green-500' : 'bg-gray-300'}`}></div>
+                包含数字
+              </li>
+              <li className="flex items-center">
+                <div className={`w-1.5 h-1.5 rounded-full mr-2 ${/[!@#$%^&*(),.?":{}|<>]/.test(password) ? 'bg-green-500' : 'bg-gray-300'}`}></div>
+                包含特殊符号 (如 @, #, $)
+              </li>
+            </ul>
+          </div>
+
+          <div className="flex justify-end space-x-3 pt-2">
+            <button 
+              onClick={onCancel} 
+              className="px-5 py-2.5 text-sm font-medium text-gray-500 hover:bg-gray-100 rounded-xl transition-colors"
+            >
+              取消
+            </button>
+            <button 
+              onClick={() => {
+                if (!isStrong) {
+                  alert('密码强度不足！请确保满足所有强密码要求，以更好地保护你的文件。');
+                } else {
+                  onConfirm(password);
+                }
+              }}
+              className="px-5 py-2.5 text-sm font-bold bg-blue-600 text-white rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-200 transition-all active:scale-95"
+            >
+              确认加密
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export default function App() {
   const [phase, setPhase] = useState<Phase>(0);
   const [activeWindow, setActiveWindow] = useState<WindowId>('none');
@@ -159,6 +258,7 @@ export default function App() {
   const [aiQuizInput, setAiQuizInput] = useState('');
   const [aiQuizFeedback, setAiQuizFeedback] = useState('');
   const [isAiQuizEvaluating, setIsAiQuizEvaluating] = useState(false);
+  const [showQuizPrompt, setShowQuizPrompt] = useState(false);
 
   const QUIZ_QUESTIONS = [
     {
@@ -245,8 +345,8 @@ export default function App() {
     }
     if (phase === 3) {
       const allDone = Object.values(tasks).every(Boolean);
-      if (allDone) {
-        setPhase(5); // Go to Quiz Phase
+      if (allDone && !showQuizPrompt) {
+        setShowQuizPrompt(true);
       }
     }
   }, [tasks, phase, introFinished]);
@@ -366,7 +466,6 @@ export default function App() {
   };
 
   const completeTask = (task: TaskId) => {
-    if (phase !== 3) return;
     setTasks(prev => ({ ...prev, [task]: true }));
   };
 
@@ -540,6 +639,20 @@ export default function App() {
                 </div>
               ))}
             </div>
+            {showQuizPrompt && (
+              <div className="p-3 bg-green-50 border-t border-green-100 animate-in slide-in-from-bottom duration-300">
+                <p className="text-xs text-green-800 mb-2 font-medium">恭喜！你已完成所有安全加固任务。</p>
+                <button 
+                  onClick={() => {
+                    setPhase(5);
+                    setShowQuizPrompt(false);
+                  }}
+                  className="w-full py-2 bg-green-600 text-white text-xs font-bold rounded hover:bg-green-700 transition-colors flex items-center justify-center"
+                >
+                  进入本节课知识考核 <ChevronRight size={14} className="ml-1" />
+                </button>
+              </div>
+            )}
           </div>
         )}
 
@@ -575,7 +688,7 @@ export default function App() {
                   const pwd = prompt('请输入 School_Secure 的密码:');
                   if (pwd === '123456' || pwd === 'admin') {
                     setWifiConnected('school');
-                    if (phase === 3) completeTask('network');
+                    completeTask('network');
                   } else if (pwd !== null) {
                     alert('密码错误！提示：试试 123456');
                   }
@@ -634,7 +747,7 @@ export default function App() {
                         if (p >= 100) {
                           clearInterval(interval);
                           setIsUpdating(false);
-                          if (phase === 3) completeTask('update');
+                          completeTask('update');
                           
                           closeWindow('update');
                         }
@@ -737,96 +850,21 @@ export default function App() {
 
             {/* Encrypt Modal */}
             {showEncryptModal && (
-              <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-50">
-                <div className="bg-white p-6 rounded-2xl shadow-2xl w-96 animate-in zoom-in duration-200">
-                  <div className="flex items-center space-x-2 mb-4 text-blue-600">
-                    <Lock size={20} />
-                    <h3 className="text-xl font-bold">设置文件加密密码</h3>
-                  </div>
-                  
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">请输入新密码</label>
-                      <div className="relative">
-                        <input 
-                          type={showPassword ? 'text' : 'password'} 
-                          placeholder="例如: Abc@1234"
-                          value={excelPassword}
-                          onChange={e => setExcelPassword(e.target.value)}
-                          className="w-full p-3 pr-10 border-2 border-gray-100 rounded-xl focus:border-blue-500 focus:outline-none transition-colors"
-                        />
-                        <button 
-                          type="button"
-                          onClick={() => setShowPassword(!showPassword)}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none"
-                        >
-                          {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
-                      <h4 className="text-xs font-bold text-blue-800 uppercase tracking-wider mb-2">强密码设置要求：</h4>
-                      <ul className="text-xs text-blue-700 space-y-1">
-                        <li className="flex items-center">
-                          <div className={`w-1.5 h-1.5 rounded-full mr-2 ${excelPassword.length >= 8 ? 'bg-green-500' : 'bg-gray-300'}`}></div>
-                          长度至少 8 位
-                        </li>
-                        <li className="flex items-center">
-                          <div className={`w-1.5 h-1.5 rounded-full mr-2 ${/[A-Z]/.test(excelPassword) && /[a-z]/.test(excelPassword) ? 'bg-green-500' : 'bg-gray-300'}`}></div>
-                          包含大小写字母
-                        </li>
-                        <li className="flex items-center">
-                          <div className={`w-1.5 h-1.5 rounded-full mr-2 ${/[0-9]/.test(excelPassword) ? 'bg-green-500' : 'bg-gray-300'}`}></div>
-                          包含数字
-                        </li>
-                        <li className="flex items-center">
-                          <div className={`w-1.5 h-1.5 rounded-full mr-2 ${/[!@#$%^&*(),.?":{}|<>]/.test(excelPassword) ? 'bg-green-500' : 'bg-gray-300'}`}></div>
-                          包含特殊符号 (如 @, #, $)
-                        </li>
-                      </ul>
-                    </div>
-
-                    <div className="flex justify-end space-x-3 pt-2">
-                      <button 
-                        onClick={() => {
-                          setExcelPassword('');
-                          setShowPassword(false);
-                          setShowEncryptModal(false);
-                        }} 
-                        className="px-5 py-2.5 text-sm font-medium text-gray-500 hover:bg-gray-100 rounded-xl transition-colors"
-                      >
-                        取消
-                      </button>
-                      <button 
-                        onClick={() => {
-                          const isStrong = excelPassword.length >= 8 && 
-                                          /[A-Z]/.test(excelPassword) && 
-                                          /[a-z]/.test(excelPassword) && 
-                                          /[0-9]/.test(excelPassword) && 
-                                          /[!@#$%^&*(),.?":{}|<>]/.test(excelPassword);
-                          
-                          if (!isStrong) {
-                            alert('密码强度不足！请确保满足所有强密码要求，以更好地保护你的文件。');
-                          } else {
-                            completeTask('password');
-                            setShowPassword(false);
-                            setShowEncryptModal(false);
-                            setNotification({
-                              title: '加密成功',
-                              message: '文件已使用强密码加密，数据安全等级提升！',
-                              icon: Lock
-                            });
-                          }
-                        }}
-                        className="px-5 py-2.5 text-sm font-bold bg-blue-600 text-white rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-200 transition-all active:scale-95"
-                      >
-                        确认加密
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <EncryptModal 
+                onConfirm={(password) => {
+                  setExcelPassword(password);
+                  completeTask('password');
+                  setShowEncryptModal(false);
+                  setNotification({
+                    title: '加密成功',
+                    message: '文件已使用强密码加密，数据安全等级提升！',
+                    icon: Lock
+                  });
+                }}
+                onCancel={() => {
+                  setShowEncryptModal(false);
+                }}
+              />
             )}
           </div>
         </WindowWrapper>
@@ -1257,21 +1295,81 @@ export default function App() {
           </div>
         )}
 
-        {/* Phase 4: Success Modal */}
+        {/* Phase 4: Knowledge Summary Report */}
         {phase === 4 && (
-          <div className="absolute inset-0 bg-green-900/60 backdrop-blur-sm flex items-center justify-center z-[100]">
-            <div className="bg-white p-8 rounded-xl shadow-2xl max-w-lg border-t-8 border-green-500 text-center">
-              <ShieldCheck size={80} className="mx-auto text-green-500 mb-4" />
-              <h2 className="text-2xl font-bold text-green-700 mb-4">数据安全项目结项报告</h2>
-              <p className="text-gray-700 mb-6 leading-relaxed">
-                恭喜你！你已熟练掌握保护数据的 9 个小妙招，成功保护了班级隐私数据，避免了社会工程学和网络攻击的威胁。
-              </p>
-              <button 
-                onClick={() => window.location.reload()}
-                className="px-6 py-3 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition-colors"
-              >
-                重新体验
-              </button>
+          <div className="absolute inset-0 bg-slate-900/80 backdrop-blur-md flex items-center justify-center z-[100] p-6">
+            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden animate-in zoom-in duration-500 flex flex-col max-h-full">
+              <div className="bg-green-600 p-6 text-white flex items-center space-x-4 shrink-0">
+                <ShieldCheck size={40} />
+                <div>
+                  <h2 className="text-2xl font-bold">数据安全项目学习总结报告</h2>
+                  <p className="text-sm opacity-90">恭喜你完成了本节课的所有挑战！</p>
+                </div>
+              </div>
+              
+              <div className="flex-1 p-8 overflow-y-auto space-y-6">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100">
+                    <p className="text-xs text-blue-600 font-bold uppercase mb-1">测验得分</p>
+                    <p className="text-3xl font-black text-blue-700">{quizScore} <span className="text-sm font-normal">/ 100</span></p>
+                  </div>
+                  <div className="bg-green-50 p-4 rounded-2xl border border-green-100">
+                    <p className="text-xs text-green-600 font-bold uppercase mb-1">安全加固</p>
+                    <p className="text-3xl font-black text-green-700">9 <span className="text-sm font-normal">/ 9 项已完成</span></p>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <h3 className="font-bold text-lg text-gray-800 flex items-center">
+                    <Database size={20} className="mr-2 text-blue-500" /> 知识点回顾
+                  </h3>
+                  <div className="grid grid-cols-1 gap-2">
+                    <div className="flex items-start space-x-3 p-3 bg-gray-50 rounded-xl">
+                      <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center text-white shrink-0 mt-0.5">✓</div>
+                      <p className="text-sm text-gray-700"><span className="font-bold">物理层安全：</span> 识别并连接安全WiFi，避免公共开放网络风险。</p>
+                    </div>
+                    <div className="flex items-start space-x-3 p-3 bg-gray-50 rounded-xl">
+                      <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center text-white shrink-0 mt-0.5">✓</div>
+                      <p className="text-sm text-gray-700"><span className="font-bold">系统层安全：</span> 及时更新补丁、开启杀毒软件、定期备份数据。</p>
+                    </div>
+                    <div className="flex items-start space-x-3 p-3 bg-gray-50 rounded-xl">
+                      <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center text-white shrink-0 mt-0.5">✓</div>
+                      <p className="text-sm text-gray-700"><span className="font-bold">应用层安全：</span> 使用强密码、开启双重认证、关闭自动登录。</p>
+                    </div>
+                    <div className="flex items-start space-x-3 p-3 bg-gray-50 rounded-xl">
+                      <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center text-white shrink-0 mt-0.5">✓</div>
+                      <p className="text-sm text-gray-700"><span className="font-bold">数据层安全：</span> 开启隐私保护模式、设置文档编辑权限、文件加密。</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-purple-50 p-6 rounded-2xl border border-purple-100">
+                  <h3 className="font-bold text-purple-800 mb-2 flex items-center">
+                    <Shield size={18} className="mr-2" /> AI 导师寄语
+                  </h3>
+                  <p className="text-sm text-purple-900 italic leading-relaxed">
+                    {aiQuizFeedback || "你在本次项目中表现出色！不仅成功修复了所有安全隐患，还在考核中展现了扎实的基础。记住，数据安全不是一次性的任务，而是一种长期的习惯。在未来的数字生活中，请继续保持这份警惕与专业。"}
+                  </p>
+                </div>
+              </div>
+
+              <div className="p-6 bg-gray-50 border-t flex space-x-4 shrink-0">
+                <button 
+                  onClick={() => window.location.reload()}
+                  className="flex-1 py-3 bg-gray-200 text-gray-700 font-bold rounded-xl hover:bg-gray-300 transition-colors"
+                >
+                  重新体验
+                </button>
+                <button 
+                  onClick={() => {
+                    setPhase(3); // Go back to desktop but keep AI open
+                    setChecklistVisible(true);
+                  }}
+                  className="flex-1 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-200 transition-all"
+                >
+                  继续与 AI 交流
+                </button>
+              </div>
             </div>
           </div>
         )}
